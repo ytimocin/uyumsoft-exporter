@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireSession } from "@/lib/auth";
+import { requireSession, toSessionUser } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await requireSession(request);
-    return NextResponse.json({ user });
+    const session = await requireSession(request);
+    return NextResponse.json({ user: toSessionUser(session) });
   } catch (error) {
     if (error instanceof Response) {
       return error;

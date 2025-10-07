@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ensureAccessToken, overwriteSheet } from "@/lib/google";
-import { requireSession } from "@/lib/auth";
+import {
+  ensureAccessToken,
+  overwriteSheet,
+  getSpreadsheetUrl,
+} from "@/lib/google";
+import { requireSession, setSessionCookie } from "@/lib/auth";
 import { parseCsv, projectColumns, toSheetValues } from "@/lib/csv";
 import { DEFAULT_COLUMNS, REQUIRED_KEY_COLUMN } from "@/lib/constants";
 
 export async function POST(request: NextRequest) {
   let dryRun = false;
   try {
-    const user = await requireSession(request);
+    let session = await requireSession(request);
     const formData = await request.formData();
     const sheetId = (formData.get("sheetId") as string | null)?.trim();
     const sheetTab =
@@ -52,11 +56,20 @@ export async function POST(request: NextRequest) {
     const projected = projectColumns(parsed.rows, selectedColumns);
     const values = toSheetValues(selectedColumns, projected);
 
-    const token = await ensureAccessToken(user.id);
+    const refreshed = await ensureAccessToken(session);
+    if (
+      refreshed.accessToken !== session.accessToken ||
+      refreshed.expiresAt !== session.expiresAt
+    ) {
+      await setSessionCookie(refreshed);
+      session = refreshed;
+    }
 
     if (!dryRun) {
-      await overwriteSheet(token.accessToken, sheetId, sheetTab, values);
+      await overwriteSheet(session.accessToken, sheetId, sheetTab, values);
     }
+
+    const sheetUrl = getSpreadsheetUrl(sheetId);
 
     return NextResponse.json({
       rowCount: projected.length,
@@ -65,6 +78,7 @@ export async function POST(request: NextRequest) {
       sheetTab,
       dryRun,
       columns: selectedColumns,
+      sheetUrl,
     });
   } catch (error) {
     console.error("Sync failed", error);

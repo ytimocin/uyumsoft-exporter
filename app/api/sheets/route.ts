@@ -4,13 +4,20 @@ import {
   createSpreadsheet,
   listSpreadsheets,
 } from "@/lib/google";
-import { requireSession } from "@/lib/auth";
+import { requireSession, setSessionCookie } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await requireSession(request);
-    const token = await ensureAccessToken(user.id);
-    const sheets = await listSpreadsheets(token.accessToken);
+    let session = await requireSession(request);
+    const refreshed = await ensureAccessToken(session);
+    if (
+      refreshed.accessToken !== session.accessToken ||
+      refreshed.expiresAt !== session.expiresAt
+    ) {
+      await setSessionCookie(refreshed);
+      session = refreshed;
+    }
+    const sheets = await listSpreadsheets(session.accessToken);
     return NextResponse.json({ sheets });
   } catch (error) {
     console.error("Failed to list sheets", error);
@@ -23,14 +30,21 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireSession(request);
+    let session = await requireSession(request);
     const body = await request.json();
     const title = (body?.title as string | undefined)?.trim();
     if (!title) {
       return new NextResponse("Title is required", { status: 400 });
     }
-    const token = await ensureAccessToken(user.id);
-    const sheet = await createSpreadsheet(token.accessToken, title);
+    const refreshed = await ensureAccessToken(session);
+    if (
+      refreshed.accessToken !== session.accessToken ||
+      refreshed.expiresAt !== session.expiresAt
+    ) {
+      await setSessionCookie(refreshed);
+      session = refreshed;
+    }
+    const sheet = await createSpreadsheet(session.accessToken, title);
     return NextResponse.json(sheet, { status: 201 });
   } catch (error) {
     console.error("Failed to create sheet", error);

@@ -5,8 +5,8 @@ import {
   sessionCookieOptions,
   createSessionToken,
   SESSION_COOKIE,
+  Session,
 } from "@/lib/auth";
-import { upsertToken } from "@/lib/tokenStore";
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
@@ -30,20 +30,16 @@ export async function GET(request: NextRequest) {
     const tokens = await exchangeCodeForTokens(code);
     const user = await fetchGoogleUser(tokens.accessToken);
 
-    await upsertToken({
-      userId: user.id,
+    const session: Session = {
+      id: user.id,
       email: user.email,
       name: user.name,
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
-      expiresAt: new Date(Date.now() + tokens.expiresIn * 1000),
-    });
+      expiresAt: Date.now() + tokens.expiresIn * 1000,
+    };
 
-    const sessionToken = await createSessionToken({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-    });
+    const sessionToken = await createSessionToken(session);
     const response = NextResponse.redirect(new URL("/", request.url));
     response.cookies.set(SESSION_COOKIE, sessionToken, sessionCookieOptions);
     return response;

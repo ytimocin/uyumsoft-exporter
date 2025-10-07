@@ -1,5 +1,6 @@
 import { getEnv } from "@/lib/env";
-import { StoredToken, getToken, upsertToken } from "@/lib/tokenStore";
+import { GOOGLE_OAUTH_SCOPES } from "@/lib/constants";
+import type { Session } from "@/lib/auth";
 
 export type GoogleTokens = {
   accessToken: string;
@@ -21,6 +22,10 @@ export type SpreadsheetSummary = {
   modifiedTime?: string;
 };
 
+export function getSpreadsheetUrl(spreadsheetId: string): string {
+  return `https://docs.google.com/spreadsheets/d/${spreadsheetId}`;
+}
+
 function getClientCredentials() {
   const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI } =
     getEnv();
@@ -35,11 +40,7 @@ export function buildAuthUrl(state: string): string {
     response_type: "code",
     access_type: "offline",
     prompt: "consent",
-    scope: [
-      "https://www.googleapis.com/auth/spreadsheets",
-      "https://www.googleapis.com/auth/drive.readonly",
-      "https://www.googleapis.com/auth/drive.file",
-    ].join(" "),
+    scope: GOOGLE_OAUTH_SCOPES.join(" "),
     state,
   });
 
@@ -157,34 +158,20 @@ export async function fetchGoogleUser(
   };
 }
 
-type TokenWithUser = StoredToken;
-
-export async function ensureAccessToken(
-  userId: string,
-): Promise<TokenWithUser> {
-  const record = await getToken(userId);
-  if (!record) {
-    throw new Error("No tokens stored for user");
-  }
-
+export async function ensureAccessToken(session: Session): Promise<Session> {
   const now = Date.now();
-  const expiresSoon = record.expiresAt.getTime() - now < 60_000;
+  const expiresSoon = session.expiresAt - now < 60_000;
 
   if (!expiresSoon) {
-    return record;
+    return session;
   }
 
-  const refreshed = await refreshAccessToken(record.refreshToken);
-  const updated: StoredToken = {
-    userId: record.userId,
-    email: record.email,
-    name: record.name,
+  const refreshed = await refreshAccessToken(session.refreshToken);
+  return {
+    ...session,
     accessToken: refreshed.accessToken,
-    refreshToken: refreshed.refreshToken,
-    expiresAt: new Date(Date.now() + refreshed.expiresIn * 1000),
+    expiresAt: Date.now() + refreshed.expiresIn * 1000,
   };
-  await upsertToken(updated);
-  return updated;
 }
 
 async function authorizedFetch(

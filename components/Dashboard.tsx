@@ -31,6 +31,7 @@ type SyncResponse = {
   sheetTab: string;
   dryRun: boolean;
   columns: string[];
+  sheetUrl?: string;
 };
 
 export default function Dashboard({ user }: DashboardProps) {
@@ -47,7 +48,8 @@ export default function Dashboard({ user }: DashboardProps) {
   const [status, setStatus] = useState<{
     type: "idle" | "error" | "success";
     message: string;
-  }>({ type: "idle", message: "" });
+    url?: string;
+  }>({ type: "idle", message: "", url: undefined });
 
   const hasFile = useMemo(() => Boolean(file), [file]);
 
@@ -91,6 +93,7 @@ export default function Dashboard({ user }: DashboardProps) {
         setStatus({
           type: "error",
           message: "Failed to load Google Sheets list.",
+          url: undefined,
         });
       } finally {
         setLoadingSheets(false);
@@ -144,12 +147,13 @@ export default function Dashboard({ user }: DashboardProps) {
         COLUMN_STORAGE_KEY,
         JSON.stringify(Array.from(next)),
       );
-      setStatus({ type: "idle", message: "" });
+      setStatus({ type: "idle", message: "", url: undefined });
     } catch (error) {
       console.error("Failed to parse CSV headers", error);
       setStatus({
         type: "error",
         message: "Could not read CSV header. Please check the file.",
+        url: undefined,
       });
     }
   };
@@ -182,10 +186,19 @@ export default function Dashboard({ user }: DashboardProps) {
       setSheets((prev) => [sheet, ...prev]);
       setSelectedSheetId(sheet.id);
       localStorage.setItem(SHEET_STORAGE_KEY, sheet.id);
-      setStatus({ type: "success", message: `Created sheet ${sheet.name}` });
+      const sheetUrl = `https://docs.google.com/spreadsheets/d/${sheet.id}`;
+      setStatus({
+        type: "success",
+        message: `Created sheet ${sheet.name}`,
+        url: sheetUrl,
+      });
     } catch (error) {
       console.error("Create sheet failed", error);
-      setStatus({ type: "error", message: "Could not create Google Sheet." });
+      setStatus({
+        type: "error",
+        message: "Could not create Google Sheet.",
+        url: undefined,
+      });
     } finally {
       setLoadingSheets(false);
     }
@@ -193,28 +206,41 @@ export default function Dashboard({ user }: DashboardProps) {
 
   const handleSync = async () => {
     if (!file) {
-      setStatus({ type: "error", message: "Upload a CSV export first." });
+      setStatus({
+        type: "error",
+        message: "Upload a CSV export first.",
+        url: undefined,
+      });
       return;
     }
     if (!selectedSheetId) {
-      setStatus({ type: "error", message: "Select or create a Google Sheet." });
+      setStatus({
+        type: "error",
+        message: "Select or create a Google Sheet.",
+        url: undefined,
+      });
       return;
     }
     if (!selectedColumns.length) {
-      setStatus({ type: "error", message: "Choose at least one column." });
+      setStatus({
+        type: "error",
+        message: "Choose at least one column.",
+        url: undefined,
+      });
       return;
     }
     if (!availableColumns.length) {
       setStatus({
         type: "error",
         message: "Could not detect columns from the CSV.",
+        url: undefined,
       });
       return;
     }
 
     try {
       setSyncing(true);
-      setStatus({ type: "idle", message: "" });
+      setStatus({ type: "idle", message: "", url: undefined });
       const formData = new FormData();
       formData.append("file", file);
       formData.append("sheetId", selectedSheetId);
@@ -236,12 +262,14 @@ export default function Dashboard({ user }: DashboardProps) {
       setStatus({
         type: "success",
         message: `${payload.dryRun ? "Dry-run" : "Sync"} ready: ${payload.rowCount} rows, ${payload.columnCount} columns.`,
+        url: payload.dryRun ? undefined : payload.sheetUrl,
       });
     } catch (error) {
       console.error("Sync failed", error);
       setStatus({
         type: "error",
         message: error instanceof Error ? error.message : "Sync failed",
+        url: undefined,
       });
     } finally {
       setSyncing(false);
@@ -350,13 +378,25 @@ export default function Dashboard({ user }: DashboardProps) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm text-slate-400">
           {status.message && (
-            <span
-              className={
-                status.type === "error" ? "text-red-400" : "text-emerald-400"
-              }
-            >
-              {status.message}
-            </span>
+            <div className="flex items-center gap-3">
+              <span
+                className={
+                  status.type === "error" ? "text-red-400" : "text-emerald-400"
+                }
+              >
+                {status.message}
+              </span>
+              {status.url && status.type === "success" && !dryRun && (
+                <a
+                  href={status.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-semibold text-emerald-300 hover:text-emerald-200"
+                >
+                  Open sheet ↗
+                </a>
+              )}
+            </div>
           )}
         </div>
         <button
