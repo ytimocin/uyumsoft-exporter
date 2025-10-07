@@ -2,11 +2,14 @@
 
 import { useMemo } from "react";
 import { DEFAULT_COLUMNS, REQUIRED_KEY_COLUMN } from "@/lib/constants";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { cn } from "@/lib/utils";
 
 const LABEL_OVERRIDES: Record<string, string> = {
-  Gönderici: "Cari İsmi (Gönderici)",
-  "Ödenecek Tutar": "Tutar (Ödenecek Tutar)",
-  "Sipariş Numarası": "İrsaliye No (Sipariş Numarası)",
+  Gönderici: "Cari İsmi",
+  "Ödenecek Tutar": "Ödenecek Tutar",
+  "Sipariş Numarası": "İrsaliye No",
 };
 
 type ColumnSelectorProps = {
@@ -20,9 +23,10 @@ export default function ColumnSelector({
   selected,
   onChange,
 }: ColumnSelectorProps) {
-  const sortedColumns = useMemo(() => {
-    return [...available].sort((a, b) => a.localeCompare(b, "tr"));
-  }, [available]);
+  const sortedColumns = useMemo(
+    () => [...available].sort((a, b) => a.localeCompare(b, "tr")),
+    [available],
+  );
 
   const selectedSet = useMemo(() => new Set(selected), [selected]);
 
@@ -43,53 +47,60 @@ export default function ColumnSelector({
   };
 
   const resetDefaults = () => {
-    const columns = available.filter((header) =>
+    const defaults = available.filter((header) =>
       DEFAULT_COLUMNS.includes(header),
     );
-    const next = new Set(columns.length ? columns : [REQUIRED_KEY_COLUMN]);
+    const next = new Set(defaults.length ? defaults : [REQUIRED_KEY_COLUMN]);
     next.add(REQUIRED_KEY_COLUMN);
     onChange(Array.from(next));
   };
 
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-200">
-          Columns to Sync
-        </h3>
-        <button
-          type="button"
-          onClick={resetDefaults}
-          className="text-xs font-medium text-emerald-400 hover:text-emerald-300"
-        >
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1.5">
+          <p className="text-xs uppercase tracking-[0.35em] text-brand-200/70">
+            Step 2
+          </p>
+          <h3 className="text-lg font-semibold text-white">Select columns</h3>
+          <p className="text-sm text-slate-400">
+            Keep the fields your team needs in Google Sheets. The{" "}
+            {REQUIRED_KEY_COLUMN} column stays locked so updates remain
+            idempotent.
+          </p>
+        </div>
+        <Button type="button" variant="ghost" size="sm" onClick={resetDefaults}>
           Reset defaults
-        </button>
+        </Button>
       </div>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+
+      <div className="flex flex-wrap gap-2">
         {sortedColumns.map((column) => {
           const label = LABEL_OVERRIDES[column] ?? column;
+          const isActive = selectedSet.has(column);
           const isRequired = column === REQUIRED_KEY_COLUMN;
           return (
-            <label
+            <button
               key={column}
-              className={`flex items-center gap-2 rounded-md border border-slate-800 px-3 py-2 text-xs transition ${
-                selectedSet.has(column) ? "bg-slate-800/80" : "bg-slate-950/40"
-              } ${isRequired ? "ring-1 ring-emerald-500/40" : ""}`}
-            >
-              <input
-                type="checkbox"
-                checked={selectedSet.has(column)}
-                onChange={() => toggleColumn(column)}
-                disabled={isRequired}
-                className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-emerald-400"
-              />
-              <span className="text-slate-200">{label}</span>
-              {isRequired && (
-                <span className="text-[10px] uppercase text-emerald-400">
-                  required
-                </span>
+              type="button"
+              onClick={() => toggleColumn(column)}
+              disabled={isRequired}
+              className={cn(
+                "group flex items-center gap-2 rounded-full border px-4 py-2 text-sm transition",
+                isActive
+                  ? "border-brand-400/60 bg-brand-500/15 text-white shadow-lg shadow-brand-500/20"
+                  : "border-white/10 bg-white/5 text-slate-300 hover:border-brand-400/40 hover:text-white",
+                isRequired &&
+                  "cursor-not-allowed border-brand-400/70 bg-brand-500/20 text-white",
               )}
-            </label>
+            >
+              <span>{label}</span>
+              {isRequired ? (
+                <Badge className="bg-brand-500/20 text-brand-100">
+                  Required
+                </Badge>
+              ) : null}
+            </button>
           );
         })}
       </div>

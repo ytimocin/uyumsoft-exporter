@@ -1,5 +1,6 @@
 import "@/styles/globals.css";
 import type { Metadata } from "next";
+import { Providers } from "@/components/Providers";
 
 export const metadata: Metadata = {
   title: "Uyumsoft Exporter",
@@ -13,8 +14,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-slate-950 text-slate-100 min-h-screen">
-        <main className="max-w-4xl mx-auto px-6 py-10">{children}</main>
+      <body className="relative">
+        <Providers>
+          <main className="relative mx-auto flex min-h-screen max-w-5xl flex-col gap-10 px-6 py-12 sm:px-12">
+            {children}
+          </main>
+        </Providers>
       </body>
     </html>
   );

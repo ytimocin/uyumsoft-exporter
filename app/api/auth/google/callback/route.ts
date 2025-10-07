@@ -40,13 +40,15 @@ export async function GET(request: NextRequest) {
     };
 
     const sessionToken = await createSessionToken(session);
-    const response = NextResponse.redirect(new URL("/", request.url));
+    const redirectUrl = new URL("/", request.url);
+    redirectUrl.searchParams.set("auth", "success");
+    const response = NextResponse.redirect(redirectUrl);
     response.cookies.set(SESSION_COOKIE, sessionToken, sessionCookieOptions);
     return response;
   } catch (err) {
     console.error("OAuth callback failure", err);
-    return new NextResponse("Failed to complete authentication", {
-      status: 500,
-    });
+    const redirectUrl = new URL("/", request.url);
+    redirectUrl.searchParams.set("auth", "error");
+    return NextResponse.redirect(redirectUrl);
   }
 }
