@@ -7,7 +7,7 @@ Simple Next.js app that uploads Uyumsoft CSV exports, lets you pick the columns 
 1. Install dependencies: `npm install`
 2. Copy `.env.example` to `.env.local` and set:
    - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`
-   - `SESSION_SECRET` (32+ random chars)
+   - `SESSION_SECRET` (8+ random chars)
 3. Run the dev server: `npm run dev` (or `make dev`) and open `http://localhost:3000`
 4. Sign in with Google, pick/Create a Sheet, upload the CSV, confirm the preselected columns, then sync. Tokens live in memory only, so re-authenticate after restarts.
 
